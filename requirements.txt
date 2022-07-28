@@ -1,0 +1,5 @@
+python-dotenv==0.11.0
+mysql-connector-python==8.0.28
+pandas==1.4.3
+XlsxWriter==3.0.3
+PyDrive2==1.14.0
