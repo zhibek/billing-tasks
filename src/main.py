@@ -51,8 +51,8 @@ def process_data(data, month):
         "Date": pd.period_range(
             start=pd.Timestamp(month),
             end=pd.Timestamp(month) + pd.offsets.MonthEnd(0),
-            freq='D'
-        ).strftime('%Y-%m-%d'),
+            freq="D"
+        ).strftime("%Y-%m-%d"),
     })
     df = df.set_index("Date")
 
@@ -101,22 +101,22 @@ def execute_project(month, project):
 
 
 def _last_month():
-    now = pd.to_datetime('now')
+    now = pd.to_datetime("now")
     last_month = now - pd.DateOffset(months=1)
-    last_month = last_month.strftime('%Y-%m')
+    last_month = last_month.strftime("%Y-%m")
     return last_month
 
 
 def _month_start(month):
     month_start = pd.to_datetime(month)
-    month_start = month_start.strftime('%Y-%m-%d')
+    month_start = month_start.strftime("%Y-%m-%d")
     return month_start
 
 
 def _month_end(month):
     month_start = pd.to_datetime(month)
     month_end = month_start + pd.DateOffset(months=1)
-    month_end = month_end.strftime('%Y-%m-%d')
+    month_end = month_end.strftime("%Y-%m-%d")
     return month_end
 
 
