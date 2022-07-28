@@ -85,15 +85,19 @@ def process_data(data, month):
     #         <Engineer>: <Hours>,
     #     },
     # ]
-    data_list = []
+    data_dict = {}
     for row in data:
-        item = {
-            "Date": row[0],
-            _transform_name(row[1]): row[2],
-        }
-        data_list.append(item)
+        date = row[0]
+        engineer = _transform_name(row[1])
+        hours = pd.to_numeric(row[2])
 
-    data_df = pd.DataFrame(data_list)
+        if date not in data_dict:
+            data_dict[date] = {"Date": date}
+
+        data_dict[date][engineer] = hours
+
+    data_df = pd.DataFrame(data_dict.values())
+
     if data_df.empty:
         return None
 
