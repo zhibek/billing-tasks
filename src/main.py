@@ -108,7 +108,21 @@ def process_data(data, month):
 
 
 def save_excel(df, project, month):
-    df.to_excel(_file_name(project, month, data_dir=True), sheet_name=month)
+    file_name = _file_name(project, month, data_dir=True)
+    sheet_name = month
+
+    (max_row, max_col) = df.shape
+
+    writer = pd.ExcelWriter(file_name)
+
+    df.to_excel(writer, sheet_name=sheet_name)
+
+    worksheet = writer.sheets[sheet_name]
+
+    # Set column width to 20
+    worksheet.set_column(0, max_col, 20)
+
+    writer.save()
 
 
 def file_exists_in_drive(drive, path, project, month):
