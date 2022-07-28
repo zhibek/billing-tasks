@@ -25,21 +25,21 @@ EXCEL_PATH = "data/{}_{}.xlsx"
 
 
 def db_connect():
-    connection = mysql.connector.connect(
+    db = mysql.connector.connect(
         host=os.environ["DB_HOST"],
         user=os.environ["DB_USER"],
         password=os.environ["DB_PASS"],
         database=os.environ["DB_NAME"],
     )
-    return connection
+    return db
 
 
-def fetch_data(connection, project, month):
+def fetch_data(db, project, month):
     month_start = _month_start(month)
     month_end = _month_end(month)
     sql = FETCH_DATA_SQL.format(project=project, month_start=month_start, month_end=month_end)
 
-    cursor = connection.cursor()
+    cursor = db.cursor()
     cursor.execute(sql)
     result = cursor.fetchall()
     return result
@@ -90,8 +90,8 @@ def save_excel(df, project, month):
 
 def execute_project(month, project):
     print("- Fetching data from DB. month={}, project={}".format(month, project))
-    connection = db_connect()
-    data = fetch_data(connection, project, month)
+    db = db_connect()
+    data = fetch_data(db, project, month)
 
     print("- Processing data. month={}, project={}".format(month, project))
     df = process_data(data, month)
