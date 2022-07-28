@@ -9,6 +9,8 @@ from pydrive2.drive import GoogleDrive
 
 load_dotenv()
 
+DRIVE_ENABLED = False if ("DRIVE_ENABLED" in os.environ and os.environ["DRIVE_ENABLED"] == "false") else True
+
 FETCH_DATA_SQL = (
     "SELECT "
     "  DATE_FORMAT(FROM_UNIXTIME(`timesheet`.`start`), '%Y-%m-%d') AS `Date` "
@@ -128,11 +130,12 @@ def copy_to_drive(drive, path, project, month):
 
 
 def execute_project(db, drive, month, project):
-    print("- Checking if file already exists in Google Drive. month={}, project={}".format(month, project))
-    file_exists = file_exists_in_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
-    if file_exists:
-        print("** File already exists in Google Drive")
-        return False
+    if DRIVE_ENABLED:
+        print("- Checking if file already exists in Google Drive. month={}, project={}".format(month, project))
+        file_exists = file_exists_in_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+        if file_exists:
+            print("** File already exists in Google Drive")
+            return False
 
     print("- Fetching data from DB. month={}, project={}".format(month, project))
     data = fetch_data(db, project, month)
@@ -146,8 +149,10 @@ def execute_project(db, drive, month, project):
     print("- Saving Excel file. month={}, project={}".format(month, project))
     save_excel(df, project, month)
 
-    print("- Copying to Google Drive. month={}, project={}".format(month, project))
-    copy_to_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+    if DRIVE_ENABLED:
+        print("- Copying to Google Drive. month={}, project={}".format(month, project))
+        copy_to_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+
     return True
 
 
