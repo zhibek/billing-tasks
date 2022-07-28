@@ -4,6 +4,8 @@ import functools
 from dotenv import load_dotenv
 import mysql.connector
 import pandas as pd
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 
 load_dotenv()
 
@@ -21,7 +23,7 @@ FETCH_DATA_SQL = (
     "ORDER BY `Engineer`, `Date` "
 )
 
-EXCEL_PATH = "data/{}_{}.xlsx"
+FILE_NAME = "{}_{}.xlsx"
 
 
 def db_connect():
@@ -32,6 +34,25 @@ def db_connect():
         database=os.environ["DB_NAME"],
     )
     return db
+
+
+def drive_connect():
+    gauth = GoogleAuth(settings={
+        "service_config": {
+            "client_json_dict": {
+                "type": "service_account",
+                "client_email": os.environ["GOOGLE_AUTH_CLIENT_EMAIL"],
+                "client_id": os.environ["GOOGLE_AUTH_CLIENT_ID"],
+                "private_key_id": os.environ["GOOGLE_AUTH_PRIVATE_KEY_ID"],
+                "private_key": os.environ["GOOGLE_AUTH_PRIVATE_KEY"],
+            },
+            "client_user_email": os.environ["GOOGLE_AUTH_CLIENT_EMAIL"],
+        },
+    })
+    gauth.ServiceAuth()
+
+    drive = GoogleDrive(gauth)
+    return drive
 
 
 def fetch_data(db, project, month):
@@ -81,23 +102,53 @@ def process_data(data, month):
 
 
 def save_excel(df, project, month):
-    if df is None:
-        print("** No data to save")
-        return
-
-    df.to_excel(EXCEL_PATH.format(project, month), sheet_name=month)
+    df.to_excel(_file_name(project, month, data_dir=True), sheet_name=month)
 
 
-def execute_project(month, project):
+def file_exists_in_drive(drive, path, project, month):
+    file_name = _file_name(project, month)
+
+    files = drive.ListFile({"q": "'{}' in parents".format(path)}).GetList()
+
+    for file in files:
+        if file["title"] == file_name:
+            return True
+
+    return False
+
+
+def copy_to_drive(drive, path, project, month):
+    target_file_name = _file_name(project, month)
+    source_file_name = _file_name(project, month, data_dir=True)
+
+    gfile = drive.CreateFile({"parents": [{"id": path}], "title": target_file_name})
+
+    gfile.SetContentFile(source_file_name)
+    gfile.Upload()
+
+
+def execute_project(db, drive, month, project):
+    print("- Checking if file already exists in Google Drive. month={}, project={}".format(month, project))
+    file_exists = file_exists_in_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+    if file_exists:
+        print("** File already exists in Google Drive")
+        return False
+
     print("- Fetching data from DB. month={}, project={}".format(month, project))
-    db = db_connect()
     data = fetch_data(db, project, month)
 
     print("- Processing data. month={}, project={}".format(month, project))
     df = process_data(data, month)
+    if df is None:
+        print("** No data to save")
+        return False
 
     print("- Saving Excel file. month={}, project={}".format(month, project))
     save_excel(df, project, month)
+
+    print("- Copying to Google Drive. month={}, project={}".format(month, project))
+    copy_to_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+    return True
 
 
 def _last_month():
@@ -120,6 +171,15 @@ def _month_end(month):
     return month_end
 
 
+def _file_name(project, month, data_dir=False):
+    file_name = FILE_NAME.format(project, month)
+
+    if data_dir:
+        file_name = "data/" + file_name
+
+    return file_name
+
+
 def _transform_name(input):
     parts = input.split(".")
     output = functools.reduce(
@@ -137,8 +197,14 @@ def main():
     projects = os.environ["PROJECTS"].split(",")
     print("Projects: {}".format(",".join(projects)))
 
+    print("Connecting to DB...")
+    db = db_connect()
+
+    print("Connecting to Google Drive...")
+    drive = drive_connect()
+
     for project in projects:
-        execute_project(month, project)
+        execute_project(db, drive, month, project)
 
 
 main()

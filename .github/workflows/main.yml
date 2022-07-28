@@ -1,6 +1,7 @@
 name: main
 
 on:
+  push:
   schedule:
     - cron: "30 3 * * *"
 
