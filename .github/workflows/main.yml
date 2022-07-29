@@ -20,6 +20,7 @@ jobs:
         pip install -r requirements.txt
     - name: Execute
       env:
+        CHECK_FROM_DAY: ${{ secrets.CHECK_FROM_DAY }}
         PROJECTS: ${{ secrets.PROJECTS }}
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_USER: ${{ secrets.DB_USER }}
@@ -30,5 +31,8 @@ jobs:
         GOOGLE_AUTH_PRIVATE_KEY_ID: ${{ secrets.GOOGLE_AUTH_PRIVATE_KEY_ID }}
         GOOGLE_AUTH_PRIVATE_KEY: ${{ secrets.GOOGLE_AUTH_PRIVATE_KEY }}
         GOOGLE_DRIVE_PATH: ${{ secrets.GOOGLE_DRIVE_PATH }}
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_USERNAME: ${{ secrets.SLACK_USERNAME }}
+        SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
       run: |
         python3 src/main.py
