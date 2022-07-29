@@ -179,8 +179,6 @@ def copy_to_drive(drive, path, project, month):
     gfile.SetContentFile(source_file_name)
     gfile.Upload()
 
-    print(gfile["webContentLink"])
-
     return gfile["webContentLink"]
 
 
