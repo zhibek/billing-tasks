@@ -6,10 +6,13 @@ import mysql.connector
 import pandas as pd
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
+import requests
 
 load_dotenv()
 
+OVERRIDE_FROM_DAY = True if ("OVERRIDE_FROM_DAY" in os.environ and os.environ["OVERRIDE_FROM_DAY"] == "true") else True
 DRIVE_ENABLED = False if ("DRIVE_ENABLED" in os.environ and os.environ["DRIVE_ENABLED"] == "false") else True
+SLACK_ENABLED = False if ("SLACK_ENABLED" in os.environ and os.environ["SLACK_ENABLED"] == "false") else True
 
 FETCH_DATA_SQL = (
     "SELECT "
@@ -26,6 +29,21 @@ FETCH_DATA_SQL = (
 )
 
 FILE_NAME = "{}_{}.xlsx"
+
+SLACK_MESSAGE = (
+    "<!here> Timesheet generated for project '{project}' in '{month}'."
+    "\n"
+    "\n"
+    "Please check the timesheet at the URL below and confirm it is accurate."
+    "\n"
+    "{drive_url}"
+    "\n"
+    "\n"
+    "If it is *not* accurate, please delete the Google Drive file and the system will re-generate it again tomorrow."
+    "\n"
+    "\n"
+    "Please reply to this message to confirm whether the timesheet is accurate."
+)
 
 
 def db_connect():
@@ -55,6 +73,21 @@ def drive_connect():
 
     drive = GoogleDrive(gauth)
     return drive
+
+
+def check_from_day():
+    if OVERRIDE_FROM_DAY:
+        return True
+
+    from_day = os.environ["CHECK_FROM_DAY"]
+
+    now = pd.to_datetime("now")
+    current_day = now.strftime("%d")
+
+    if current_day < from_day:
+        return False
+
+    return True
 
 
 def fetch_data(db, project, month):
@@ -146,6 +179,22 @@ def copy_to_drive(drive, path, project, month):
     gfile.SetContentFile(source_file_name)
     gfile.Upload()
 
+    print(gfile["webContentLink"])
+
+    return gfile["webContentLink"]
+
+
+def trigger_slack(message):
+    webhook = os.environ["SLACK_WEBHOOK"]
+    username = os.environ["SLACK_USERNAME"]
+    channel = os.environ["SLACK_CHANNEL"]
+    payload = {
+        "channel": channel,
+        "username": username,
+        "text": message,
+    }
+    return requests.post(webhook, json=payload)
+
 
 def execute_project(db, drive, month, project):
     if DRIVE_ENABLED:
@@ -169,7 +218,14 @@ def execute_project(db, drive, month, project):
 
     if DRIVE_ENABLED:
         print("- Copying to Google Drive. month={}, project={}".format(month, project))
-        copy_to_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+        drive_url = copy_to_drive(drive, os.environ["GOOGLE_DRIVE_PATH"], project, month)
+    else:
+        drive_url = "<DRIVE_DISABLED>"
+
+    if SLACK_ENABLED:
+        print("- Sending Slack message. month={}, project={}".format(month, project))
+        message = SLACK_MESSAGE.format(project=project, month=month, drive_url=drive_url)
+        trigger_slack(message)
 
     return True
 
@@ -213,6 +269,11 @@ def _transform_name(input):
 
 def main():
     print("Starting process...")
+
+    check = check_from_day()
+    if not check:
+        print("Skipping because too early in the month! (skip by setting OVERRIDE_FROM_DAY)")
+        quit(1)
 
     month = _last_month()
     print("Month: {}".format(month))
